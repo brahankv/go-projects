@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f1f1f1;
+        }
+        #tree {
+            width: 320px;
+            float: left;
+            border-right: 1px solid #ddd;
+            height: 100vh;
+            overflow-y: auto;
+            background: #fff;
+            box-shadow: 2px 0 8px #eee;
+        }
+        #viewer {
+            margin-left: 340px;
+            padding: 24px 32px;
+            background: #fff;
+            min-height: 100vh;
+        }
+        ul {
+            list-style: none;
+            padding-left: 20px;
+            margin: 0;
+        }
+        li {
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            transition: background 0.2s;
+        }
+        li:hover {
+            background: #d4edda;
+        }
+        .folder {
+            font-weight: bold;
+            color: #155724;
+        }
+        .file {
+            color: #0074d9;
+        }
+        .controls {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-bottom: 1px solid #c3e6cb;
+        }
+        button {
+            margin-right: 5px;
+            padding: 6px 16px;
+            border: none;
+            background: #4CAF50;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            box-shadow: 0 2px 4px #e0e0e0;
+            transition: background 0.2s;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #nav-panel {
+            margin-bottom: 16px;
+            padding: 10px 0 10px 0;
+            background: #e9ecef;
+            border-bottom: 1px solid #c3e6cb;
+            display: flex;
+            align-items: center;
+        }
+        #file-path {
+            font-size: 15px;
+            color: #155724;
+            flex: 1;
+            word-break: break-all;
+        }
+        #download-btn {
+            margin-left: 10px;
+        }
+        #file-content {
+            background: #f8f8f8;
+            color: #222;
+            border-radius: 6px;
+            padding: 18px;
+            min-height: 300px;
+            font-family: Consolas, Menlo, Monaco, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 14px;
+            border: 1px solid #c3e6cb;
+            box-shadow: 0 2px 8px #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div id="tree">
+        <ul id="tree-root"></ul>
+    </div>
+    <div id="viewer">
+        <div id="nav-panel" style="display:none; flex-direction: column; align-items: flex-start;">
+            <h3 id="file-path" style="margin: 0 0 8px 0; font-size: 18px; color: #155724;"></h3>
+            <button id="download-btn">Download</button>
+        </div>
+        <pre><pre id="file-content" class=""></pre></pre>
+    </div>
+    <script>
+    let currentPath = "/";
+    let inputFolders = [];
+    function fetchTree(path = "/") {
+        fetch(`/api/tree?path=${encodeURIComponent(path)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (path === "/") {
+                    inputFolders = data.map(f => f.path);
+                }
+                renderTree(data, path);
+            });
+    }
+    function renderTree(data, path) {
+        currentPath = path;
+        const root = document.getElementById('tree-root');
+        root.innerHTML = '';
+        // --- Input folders at the top ---
+        if (inputFolders.length) {
+            const inputHeader = document.createElement('li');
+            inputHeader.textContent = 'Folders:';
+            inputHeader.style.fontWeight = 'bold';
+            inputHeader.style.background = '#f0f0f0';
+            inputHeader.style.cursor = 'default';
+            root.appendChild(inputHeader);
+            inputFolders.forEach(f => {
+                const li = document.createElement('li');
+                li.textContent = f.split("/").filter(Boolean).slice(-1)[0] || f;
+                li.className = 'folder';
+                li.onclick = (e) => { e.stopPropagation(); fetchTree(f); };
+                root.appendChild(li);
+            });
+            const sep = document.createElement('li');
+            sep.style.borderBottom = '1px solid #eee';
+            sep.style.margin = '4px 0';
+            root.appendChild(sep);
+        }
+        // --- Current folder header with Up button (now below input folders) ---
+        if (path !== "/") {
+            const curHeaderLi = document.createElement('li');
+            curHeaderLi.style.display = 'flex';
+            curHeaderLi.style.alignItems = 'center';
+            const table = document.createElement('table');
+            const tbody = document.createElement('tbody');
+            table.appendChild(tbody);
+            const row1 = document.createElement('tr');
+            row1.style.paddingBottom = '6px';
+            const row2 = document.createElement('tr');
+            row2.style.paddingBottom = '10px';
+            const row3 = document.createElement('tr');
+            row3.style.paddingBottom = '10px';
+            const row4 = document.createElement('tr');
+            tbody.appendChild(row1);
+            tbody.appendChild(row2);
+            tbody.appendChild(row3);
+            tbody.appendChild(row4);
+            // Find base input folder
+            let baseFolder = inputFolders.find(f => path.startsWith(f));
+            let relPath = baseFolder ? path.slice(baseFolder.length) : path;
+            if (relPath.startsWith('/')) relPath = relPath.slice(1);
+            let displayPath = baseFolder ? (baseFolder.split('/').filter(Boolean).slice(-1)[0] + (relPath ? '/' + relPath : '')) : path;
+
+            // Label
+            const curLabel = document.createElement('span');
+            curLabel.textContent = 'Current folder:';
+            curLabel.style.fontWeight = 'bold';
+            curLabel.style.background = '#e6f7ff';
+            curLabel.style.cursor = 'default';
+            curLabel.style.padding = '4px 8px';
+            curLabel.style.borderRadius = '3px';
+            curLabel.style.display = 'inline-block';
+            row1.appendChild(curLabel);
+            // Folder path
+            const curHeader = document.createElement('span');
+            curHeader.textContent = displayPath;
+            curHeader.style.background = '#e6f7ff';
+            curHeader.style.cursor = 'default';
+            curHeader.style.padding = '4px 8px';
+            curHeader.style.borderRadius = '3px';
+            curHeader.style.display = 'inline-block';
+            row2.appendChild(curHeader);
+            // Up button
+            const upBtn = document.createElement('button');
+            upBtn.textContent = 'Up';
+            upBtn.style.marginLeft = '10px';
+            upBtn.onclick = goUp;
+            let canGoUp = true;
+            if (inputFolders.includes(path) || path === "/") canGoUp = false;
+            upBtn.disabled = !canGoUp;
+            upBtn.id = 'up-btn';
+            row3.appendChild(upBtn);
+
+            // Upload button and input
+            const uploadLabel = document.createElement('label');
+            uploadLabel.textContent = 'Upload';
+            uploadLabel.style.marginLeft = '10px';
+            uploadLabel.style.background = '#4CAF50';
+            uploadLabel.style.color = '#fff';
+            uploadLabel.style.padding = '6px 16px';
+            uploadLabel.style.borderRadius = '4px';
+            uploadLabel.style.cursor = 'pointer';
+            uploadLabel.style.fontSize = '15px';
+            uploadLabel.style.boxShadow = '0 2px 4px #e0e0e0';
+            uploadLabel.style.transition = 'background 0.2s';
+            uploadLabel.htmlFor = 'upload-input';
+
+            const uploadInput = document.createElement('input');
+            uploadInput.type = 'file';
+            uploadInput.multiple = true;
+            uploadInput.style.display = 'none';
+            uploadInput.id = 'upload-input';
+            uploadInput.addEventListener('change', function(e) {
+                if (!uploadInput.files.length) return;
+                uploadFiles(path, uploadInput.files);
+            });
+            row3.appendChild(uploadLabel);
+            row3.appendChild(uploadInput);
+
+            // Upload status
+            const uploadStatus = document.createElement('span');
+            uploadStatus.id = 'upload-status';
+            uploadStatus.style.marginLeft = '10px';
+            uploadStatus.style.fontSize = '14px';
+            uploadStatus.style.color = '#155724';
+            row4.appendChild(uploadStatus);
+
+            curHeaderLi.appendChild(table);
+            root.appendChild(curHeaderLi);
+        // Upload files function
+        function uploadFiles(folderPath, files) {
+            const status = document.getElementById('upload-status');
+            status.textContent = 'Uploading...';
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            formData.append('folder', folderPath);
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = 'Upload successful';
+                    fetchTree(currentPath);
+                } else {
+                    status.textContent = 'Upload failed: ' + (data.error || 'Unknown error');
+                }
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            })
+            .catch(err => {
+                status.textContent = 'Upload failed';
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            });
+        }
+        }
+        // --- Tree of current folder ---
+        data.forEach(item => {
+            // Don't duplicate input folders in the list
+            if (inputFolders.includes(item.path)) return;
+            const li = document.createElement('li');
+            li.textContent = item.name;
+            li.className = item.type;
+            li.onclick = (e) => {
+                e.stopPropagation();
+                if (item.type === 'folder') fetchTree(item.path);
+                else viewFile(item.path, item.name);
+            };
+            root.appendChild(li);
+        });
+        // Up button logic
+        const upBtn = document.getElementById('up-btn');
+        let canGoUp = true;
+        if (inputFolders.includes(path) || path === "/") canGoUp = false;
+        if (upBtn) upBtn.disabled = !canGoUp;
+    }
+    function goUp() {
+        if (inputFolders.includes(currentPath) || currentPath === "/") return;
+        const parts = currentPath.split("/").filter(Boolean);
+        parts.pop();
+        let parent = "/" + parts.join("/");
+        // Prevent navigating above input folders
+        if (inputFolders.includes(parent)) {
+            fetchTree(parent);
+            return;
+        }
+        fetchTree(parent);
+    }
+    function viewFile(path, name) {
+        fetch(`/api/file?path=${encodeURIComponent(path)}`)
+            .then(res => res.json())
+            .then(data => {
+                const code = document.getElementById('file-content');
+                code.textContent = data.content;
+                code.className = data.language || '';
+                // Show nav panel with file path and download
+                const nav = document.getElementById('nav-panel');
+                nav.style.display = 'flex';
+                // Compute relative path to input folder
+                let baseFolder = inputFolders.find(f => path.startsWith(f));
+                let relPath = baseFolder ? path.slice(baseFolder.length) : path;
+                if (relPath.startsWith('/')) relPath = relPath.slice(1);
+                let displayPath = baseFolder ? (baseFolder.split('/').filter(Boolean).slice(-1)[0] + (relPath ? '/' + relPath : '')) : path;
+                document.getElementById('file-path').textContent = displayPath;
+                const btn = document.getElementById('download-btn');
+                btn.onclick = () => window.location = `/api/download?path=${encodeURIComponent(path)}`;
+            });
+    }
+    // Hide nav panel when not viewing a file
+    document.getElementById('file-content').addEventListener('click', function() {
+        document.getElementById('nav-panel').style.display = 'none';
+    });
+    fetchTree();
+    </script>
+</body>
+</html>
