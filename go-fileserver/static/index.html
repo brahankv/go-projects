@@ -106,9 +106,17 @@
     <div id="viewer">
         <div id="nav-panel" style="display:none; flex-direction: column; align-items: flex-start;">
             <h3 id="file-path" style="margin: 0 0 8px 0; font-size: 18px; color: #155724;"></h3>
-            <button id="download-btn">Download</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="prev-btn" disabled>Previous</button>
+                <button id="next-btn" disabled>Next</button>
+                <button id="zoom-in-btn" style="display:none">Zoom In</button>
+                <button id="zoom-out-btn" style="display:none">Zoom Out</button>
+                <button id="download-btn">Download</button>
+            </div>
         </div>
-        <pre><pre id="file-content" class=""></pre></pre>
+        <div id="file-content-wrapper">
+            <pre id="file-content" class=""></pre>
+        </div>
     </div>
     <script>
     let currentPath = "/";
@@ -299,13 +307,65 @@
         }
         fetchTree(parent);
     }
+    let currentFileList = [];
+    let currentFileIdx = -1;
+    let currentFilePath = null;
     function viewFile(path, name) {
+        // Find siblings in the folder
+        let folder = path.split("/").slice(0, -1).join("/");
+        if (!folder) folder = "/";
+        fetch(`/api/tree?path=${encodeURIComponent(folder)}`)
+            .then(res => res.json())
+            .then(list => {
+                // Only files
+                const files = list.filter(x => x.type === 'file');
+                currentFileList = files;
+                currentFileIdx = files.findIndex(x => x.path === path);
+                currentFilePath = path;
+                updateFileView(path, name, files, currentFileIdx);
+            });
+    }
+
+    function updateFileView(path, name, files, idx) {
         fetch(`/api/file?path=${encodeURIComponent(path)}`)
             .then(res => res.json())
             .then(data => {
-                const code = document.getElementById('file-content');
-                code.textContent = data.content;
-                code.className = data.language || '';
+                const wrapper = document.getElementById('file-content-wrapper');
+                wrapper.innerHTML = '';
+                const zoomInBtn = document.getElementById('zoom-in-btn');
+                const zoomOutBtn = document.getElementById('zoom-out-btn');
+                let img = null;
+                let zoom = 1;
+                if (data.type === 'image') {
+                    img = document.createElement('img');
+                    img.src = data.content;
+                    img.alt = name;
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '70vh';
+                    img.style.display = 'block';
+                    img.style.margin = '0 auto';
+                    img.style.transform = 'scale(1)';
+                    wrapper.appendChild(img);
+                    zoomInBtn.style.display = '';
+                    zoomOutBtn.style.display = '';
+                    zoom = 1;
+                    zoomInBtn.onclick = function() {
+                        zoom = Math.min(zoom + 0.2, 5);
+                        img.style.transform = `scale(${zoom})`;
+                    };
+                    zoomOutBtn.onclick = function() {
+                        zoom = Math.max(zoom - 0.2, 0.2);
+                        img.style.transform = `scale(${zoom})`;
+                    };
+                } else {
+                    const code = document.createElement('pre');
+                    code.id = 'file-content';
+                    code.className = data.language || '';
+                    code.textContent = data.content;
+                    wrapper.appendChild(code);
+                    zoomInBtn.style.display = 'none';
+                    zoomOutBtn.style.display = 'none';
+                }
                 // Show nav panel with file path and download
                 const nav = document.getElementById('nav-panel');
                 nav.style.display = 'flex';
@@ -317,6 +377,23 @@
                 document.getElementById('file-path').textContent = displayPath;
                 const btn = document.getElementById('download-btn');
                 btn.onclick = () => window.location = `/api/download?path=${encodeURIComponent(path)}`;
+                // Navigation buttons
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
+                prevBtn.disabled = (idx <= 0);
+                nextBtn.disabled = (idx === -1 || idx >= files.length - 1);
+                prevBtn.onclick = () => {
+                    if (idx > 0) {
+                        const prev = files[idx - 1];
+                        viewFile(prev.path, prev.name);
+                    }
+                };
+                nextBtn.onclick = () => {
+                    if (idx < files.length - 1) {
+                        const next = files[idx + 1];
+                        viewFile(next.path, next.name);
+                    }
+                };
             });
     }
     // Hide nav panel when not viewing a file

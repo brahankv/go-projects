@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/base64"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -76,12 +77,12 @@ func main() {
 			http.Error(w, "Missing path", 400)
 			return
 		}
+		ext := filepath.Ext(path)
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		// Check for binary content
 		isBinary := false
 		for i := 0; i < len(data) && i < 800; i++ {
 			if data[i] == 0 {
@@ -93,16 +94,28 @@ func main() {
 				break
 			}
 		}
-		ext := filepath.Ext(path)
 		lang := extToLang(ext)
 		if isBinary {
-			json.NewEncoder(w).Encode(map[string]string{
-				"content": "[Binary file will not be displayed]",
-				"language": "",
-			})
-			return
+			mimeType := mime.TypeByExtension(ext)
+			if strings.HasPrefix(mimeType, "image/") {
+				b64 := base64.StdEncoding.EncodeToString(data)
+				json.NewEncoder(w).Encode(map[string]string{
+					"type": "image",
+					"content": "data:" + mimeType + ";base64," + b64,
+					"mime": mimeType,
+				})
+				return
+			} else {
+				json.NewEncoder(w).Encode(map[string]string{
+					"type": "binary",
+					"content": "[Binary file will not be displayed]",
+					"language": "",
+				})
+				return
+			}
 		}
 		json.NewEncoder(w).Encode(map[string]string{
+			"type": "text",
 			"content": string(data),
 			"language": lang,
 		})
