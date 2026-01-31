@@ -279,7 +279,22 @@ func (fs *FileServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		// Only process file fields (form field name 'files')
 		if part.FormName() == "files" && part.FileName() != "" {
 			filename := part.FileName()
+			
+			// Use relative path from query param if available (fix for folder structure)
+			// This overrides the potentially stripped filename from the multipart header
+			if rel := r.URL.Query().Get("relativePath"); rel != "" {
+				filename = rel
+			}
+
+			// Handle nested paths (from folder uploads)
+			// filename might contain slashes if sent as relative path
 			outPath := filepath.Join(folder, filename)
+
+			// Ensure parent dir exists
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+				return
+			}
 
 			out, err := os.Create(outPath)
 			if err != nil {
