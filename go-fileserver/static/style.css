@@ -24,6 +24,33 @@ body {
     overflow: hidden;
 }
 
+/* Line Numbers Plugin Styles */
+.hljs-ln-numbers {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    text-align: right;
+    color: #8b949e;
+    border-right: 1px solid var(--border-color);
+    vertical-align: top;
+    padding-right: 12px !important;
+    min-width: 30px;
+}
+
+.hljs-ln-code {
+    padding-left: 12px !important;
+}
+
+.hljs-ln td {
+    padding: 0;
+}
+
+.hljs-ln {
+    border-collapse: collapse;
+}
+
+/* Image Viewer */
 /* Layout */
 .app-container {
     display: flex;

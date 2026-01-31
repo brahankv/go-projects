@@ -15,6 +15,8 @@
     <link id="highlight-theme-link" rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
 
     <!-- Marked.js for Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -203,6 +205,7 @@
         let inputFolders = [];
         let currentFolderFiles = [];
         let currentFileIndex = -1;
+        let currentContent = ""; // For copy functionality
 
         // Theme handling
         function setTheme(themeFile) {
@@ -508,6 +511,7 @@
                         zoomOutBtn.style.display = 'none';
                     } else if (data.type === 'markdown') {
                         // Render Markdown
+                        currentContent = data.content; // Capture raw markdown
                         wrapper.innerHTML = marked.parse(data.content);
                         // Highlight code blocks inside markdown
                         wrapper.querySelectorAll('pre code').forEach((block) => {
@@ -544,6 +548,7 @@
                         pre.style.margin = 0;
                         const code = document.createElement('code');
                         code.textContent = data.content;
+                        currentContent = data.content; // Capture for copy
 
                         // Auto-detect language or use what backend gave
                         if (data.language && hljs.getLanguage(data.language)) {
@@ -555,6 +560,7 @@
 
                         // Highlight!
                         hljs.highlightElement(code);
+                        hljs.lineNumbersBlock(code);
 
                         zoomInBtn.style.display = 'none';
                         zoomOutBtn.style.display = 'none';
@@ -607,6 +613,91 @@
                 goUp();
             }
         });
+
+        // --- Restore Theme Selector ---
+        (function () {
+            const toolbar = document.querySelector('#nav-panel .toolbar');
+            if (!toolbar) return;
+
+            // Check if already exists to avoid duplicates (though this runs once)
+            if (document.getElementById('theme-select')) return;
+
+            const themeSelect = document.createElement('select');
+            themeSelect.id = 'theme-select';
+            themeSelect.style.marginRight = '8px';
+            themeSelect.innerHTML = `
+                <option value="default.min.css">Default</option>
+                <option value="github.min.css">GitHub Light</option>
+                <option value="dark.min.css">Dark</option>
+                <option value="atom-one-dark.min.css">Atom One Dark</option>
+                <option value="github-dark.min.css">GitHub Dark</option>
+                <option value="monokai.min.css">Monokai</option>
+                <option value="vs.min.css">VS</option>
+                <option value="xcode.min.css">Xcode</option>
+            `;
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('hljs-theme') || 'github.min.css';
+            themeSelect.value = savedTheme;
+            setTheme(savedTheme);
+
+            themeSelect.onchange = (e) => {
+                const val = e.target.value;
+                setTheme(val);
+                localStorage.setItem('hljs-theme', val);
+            };
+
+            // Insert before the buttons (prepended or inserted at specific position)
+            // Let's insert it as the first item in toolbar or before the spacer?
+            // Existing toolbar has prev/next buttons first. Let's put it before the zoom buttons or download?
+            // Or just prepend to toolbar for visibility? 
+            // Previous design had it appended. Let's append to toolbar, it will be on the right or left depending on flex spacer.
+            // The toolbar has a Spacer <div style="flex:1"></div> in valid HTML? 
+            // line 62: <div style="flex:1"></div> <!-- Spacer -->
+            // So appending will put it on the right side.
+
+            // However, the zoom/download buttons are also on the right. 
+            // Let's insert it before the Zoom In button if possible, or just append.
+            // Theme Label
+            const themeLabel = document.createElement('span');
+            themeLabel.textContent = 'Theme: ';
+            themeLabel.style.fontSize = '13px';
+            themeLabel.style.marginRight = '4px';
+            themeLabel.style.color = '#64748b';
+
+            // Insert before the buttons
+            const zoomInBtn = document.getElementById('zoom-in-btn');
+            if (zoomInBtn) {
+                toolbar.insertBefore(themeSelect, zoomInBtn);
+                toolbar.insertBefore(themeLabel, themeSelect);
+            } else {
+                toolbar.appendChild(themeLabel);
+                toolbar.appendChild(themeSelect);
+            }
+
+            // Copy Button
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'button';
+            copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+            copyBtn.setAttribute('data-tooltip', 'Copy Content');
+            copyBtn.onclick = () => {
+                if (currentContent) {
+                    navigator.clipboard.writeText(currentContent).then(() => {
+                        const originalHtml = copyBtn.innerHTML;
+                        copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="green" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                        setTimeout(() => copyBtn.innerHTML = originalHtml, 2000);
+                    });
+                }
+            };
+
+            // Append after theme select
+            if (themeSelect.nextSibling) {
+                toolbar.insertBefore(copyBtn, themeSelect.nextSibling);
+            } else {
+                toolbar.appendChild(copyBtn);
+            }
+
+        })();
 
         fetchTree();
     </script>
