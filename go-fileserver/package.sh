@@ -1,15 +1,22 @@
 #!/bin/bash
 set -e
 
-if [ -d delivery ]; then
-  rm -rf delivery
-fi
-# Build Go binary
-GOOS=linux GOARCH=amd64 go build -ldflags="-linkmode external -extldflags '-static'" -o go-fileserver main.go 
-
+# Clean previous builds
+rm -rf delivery
 mkdir -p delivery
-# Create zip
 
-zip ./delivery/go-fileserver.zip ../go-fileserver/go-fileserver ../go-fileserver/static/index.html
+# Build for Linux
+echo "Building for Linux..."
+GOOS=linux GOARCH=amd64 go build -ldflags="-linkmode external -extldflags '-static'" -o go-fileserver main.go
+zip -r delivery/go-fileserver-linux.zip go-fileserver static
 
-echo "Copied go-fileserver.zip to delivery/ folder."
+# Build for Windows
+echo "Building for Windows..."
+GOOS=windows GOARCH=amd64 go build -o go-fileserver.exe main.go
+zip -r delivery/go-fileserver-windows.zip go-fileserver.exe static
+
+# Clean up binaries
+rm -f go-fileserver go-fileserver.exe
+
+echo "Build complete. Artifacts in delivery/ folder:"
+ls -lh delivery/
