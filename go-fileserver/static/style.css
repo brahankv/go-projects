@@ -176,7 +176,8 @@ li:hover {
 /* Buttons */
 /* Buttons */
 .button,
-button {
+button,
+select.button {
     padding: 8px;
     border: 1px solid var(--border-color);
     background: white;
@@ -195,6 +196,20 @@ button {
     /* Ensure font inheritance for labels */
     font-size: 14px;
     /* Explicit size */
+}
+
+/* Fix select appearance */
+select.button {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 28px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    min-width: 140px;
+    text-align: left;
+    justify-content: flex-start;
 }
 
 .button svg,
@@ -437,9 +452,11 @@ input[type="file"] {
     background: var(--bg-color);
 }
 
-#file-content {
-    background: white;
-    color: #24292f;
+/* Ensure code blocks don't overflow inappropriately */
+/* Ensure code blocks don't overflow inappropriately */
+#file-content-wrapper pre {
+    /* Background managed by highlight.js theme now */
+    border-radius: 8px;
     border-radius: 8px;
     padding: 20px;
     margin: 0;
@@ -449,7 +466,34 @@ input[type="file"] {
     border: 1px solid var(--border-color);
     overflow-x: auto;
     box-shadow: var(--shadow-sm);
-    min-height: 200px;
+}
+
+#file-content-wrapper code {
+    font-family: inherit;
+}
+
+/* Markdown Specifics */
+#file-content-wrapper h1,
+#file-content-wrapper h2,
+#file-content-wrapper h3,
+#file-content-wrapper h4 {
+    color: var(--text-color);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+#file-content-wrapper p {
+    line-height: 1.6;
+    margin-bottom: 1em;
+}
+
+#file-content-wrapper a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+#file-content-wrapper a:hover {
+    text-decoration: underline;
 }
 
 /* Image Viewer */

@@ -169,6 +169,20 @@ func (fs *FileServer) handleFileView(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	
+	// Markdown Handling
+	if ext == ".md" || ext == ".markdown" {
+		data, err := io.ReadAll(f)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{
+			"type": "markdown",
+			"content": string(data),
+		})
+		return
+	}
 
 	if isBinary {
 		mimeType := mime.TypeByExtension(ext)

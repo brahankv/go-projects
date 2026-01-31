@@ -10,6 +10,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link id="highlight-theme-link" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body>
@@ -195,6 +203,14 @@
         let inputFolders = [];
         let currentFolderFiles = [];
         let currentFileIndex = -1;
+
+        // Theme handling
+        function setTheme(themeFile) {
+            const link = document.getElementById('highlight-theme-link');
+            if (link) {
+                link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${themeFile}`;
+            }
+        }
 
         function fetchTree(path = "/") {
             fetch(`/api/tree?path=${encodeURIComponent(path)}`)
@@ -454,6 +470,15 @@
 
                         zoomInBtn.style.display = 'none';
                         zoomOutBtn.style.display = 'none';
+                    } else if (data.type === 'markdown') {
+                        // Render Markdown
+                        wrapper.innerHTML = marked.parse(data.content);
+                        // Highlight code blocks inside markdown
+                        wrapper.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                        zoomInBtn.style.display = 'none';
+                        zoomOutBtn.style.display = 'none';
                     } else if (data.type === 'image') {
                         const img = document.createElement('img');
                         img.src = data.content;
@@ -478,11 +503,22 @@
                             img.style.transform = `scale(${zoom})`;
                         };
                     } else {
-                        const code = document.createElement('pre');
-                        code.id = 'file-content';
-                        code.className = data.language || '';
+                        // Text / Code
+                        const pre = document.createElement('pre');
+                        pre.style.margin = 0;
+                        const code = document.createElement('code');
                         code.textContent = data.content;
-                        wrapper.appendChild(code);
+
+                        // Auto-detect language or use what backend gave
+                        if (data.language && hljs.getLanguage(data.language)) {
+                            code.className = 'language-' + data.language;
+                        }
+
+                        pre.appendChild(code);
+                        wrapper.appendChild(pre);
+
+                        // Highlight!
+                        hljs.highlightElement(code);
 
                         zoomInBtn.style.display = 'none';
                         zoomOutBtn.style.display = 'none';
@@ -511,6 +547,30 @@
                     nextBtn.onclick = () => navigateFile(1);
                 });
         }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', function (e) {
+            // Ignore if focus is on an input, textarea or select
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+            if (e.key === 'ArrowLeft') {
+                const btn = document.getElementById('prev-btn');
+                if (btn && !btn.disabled && btn.style.display !== 'none') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            } else if (e.key === 'ArrowRight') {
+                const btn = document.getElementById('next-btn');
+                if (btn && !btn.disabled && btn.style.display !== 'none') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            } else if (e.key === 'ArrowUp' && e.altKey) {
+                // Alt + Up for Up Directory
+                e.preventDefault();
+                goUp();
+            }
+        });
 
         fetchTree();
     </script>
